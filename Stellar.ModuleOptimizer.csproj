@@ -15,4 +15,11 @@
     <PackageReference Include="Stellar.Abstractions" Version="1.1.1" />
     <PackageReference Include="Stellar.Plugin.InteropRefs" Version="1.1.1" />
   </ItemGroup>
+
+  <!-- Launcher tile icon (raw PNG bytes passed as LauncherEntry.IconPng; the framework rasterises it).
+       LogicalName matches the resource name LoadIconPng() requests. Without this the published DLL ships
+       iconless and the launcher falls back to the generic puzzle-piece glyph. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources/modopt-icon.png" LogicalName="Stellar.ModuleOptimizer.modopt-icon.png" />
+  </ItemGroup>
 </Project>
