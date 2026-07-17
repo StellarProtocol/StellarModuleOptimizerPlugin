@@ -12,7 +12,7 @@ namespace Stellar.ModuleOptimizer;
 
 /// <summary>
 /// Two-window module equipment optimizer. The Targets window lets the user pick
-/// attribute goals and a category mask; Optimize then enumerates every 4-combination
+/// attribute goals and a category mask; Optimize then enumerates every 5-combination
 /// of the filtered <see cref="IInventory"/> pool, scores each with the
 /// <see cref="CombatPower"/> model, and shows the top-N ranked combos in a Results
 /// window. Apply drives a confirm → run → done/failed state machine that equips the

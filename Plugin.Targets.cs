@@ -197,7 +197,7 @@ public sealed partial class Plugin
     {
         if (!_invAvailable) return "(not in-world)";
         if (_targetIds.Count == 0) return "(pick an attribute first)";
-        return "(need 4+ modules in mask)";
+        return $"(need {SlotCount}+ modules in mask)";
     }
 
     private void RunOptimizeFromTargets()

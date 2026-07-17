@@ -100,12 +100,12 @@ public class ModuleOptimizerEngineTests
     [Fact]
     public void Optimize_min_sums_filter_excludes_combos_below_floor()
     {
-        // Floor of 26 on attr 1110: only combos summing >= 26 survive.
-        var pool = DistinctPool(8);   // values 1..8; max k-sum with k=4 is 8+7+6+5=26
-        var floors = new Dictionary<int, int> { [1110] = 26 };
+        // Floor of 30 on attr 1110: only combos summing >= 30 survive.
+        var pool = DistinctPool(8);   // values 1..8; max k-sum with k=5 is 8+7+6+5+4=30
+        var floors = new Dictionary<int, int> { [1110] = 30 };
         var combos = ModuleOptimizerEngine.Optimize(
             TestModules.Snap(pool), new List<int> { 1110 }, AllCategories, 1_000_000, floors);
-        Assert.All(combos, c => Assert.True(c.ProjectedAttrTotals[1110] >= 26));
+        Assert.All(combos, c => Assert.True(c.ProjectedAttrTotals[1110] >= 30));
         Assert.NotEmpty(combos);
     }
 

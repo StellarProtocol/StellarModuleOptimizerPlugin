@@ -29,11 +29,11 @@ internal sealed class ModuleCombo
 /// <summary>
 /// Selection logic for the optimizer, ported from StarResonanceAutoMod. Scoring
 /// is the combat-power model in <see cref="CombatPower"/>: threshold-based on
-/// per-attribute SUMS, so it is NOT separable — the best 4-subset is not the 4
+/// per-attribute SUMS, so it is NOT separable — the best 5-subset is not the 5
 /// best individual modules. We therefore prefilter to a small candidate pool
 /// (mirroring AutoMod's <c>_prefilter_modules_by_total_scores</c>) and then
-/// brute-force every 4-combination of that pool, scoring each by combat power.
-/// C(<see cref="PrefilterCount"/>=40, 4) = 91390 combos — still trivial on a
+/// brute-force every SlotCount-combination of that pool, scoring each by combat power.
+/// C(<see cref="PrefilterCount"/>=40, 5) = 658,008 combos — still trivial on a
 /// click, with enough headroom for strict min-attr-sum constraints (AutoMod's
 /// <c>-mas</c>; see <see cref="MeetsMinSums"/>) to be satisfiable.
 ///
@@ -42,10 +42,10 @@ internal sealed class ModuleCombo
 /// </summary>
 internal static class ModuleOptimizerEngine
 {
-    internal const int SlotCount = 4;
+    internal const int SlotCount = 5;
 
     // Candidate pool size after the total-score prefilter (AutoMod uses a tunable
-    // enumeration count). 40 keeps C(40,4)=91390 cheap while giving headroom for
+    // enumeration count). 40 keeps C(40,5)=658,008 cheap (~sub-second) while giving headroom for
     // strict min-attr-sum floors: the prefilter ranks target-rich modules first,
     // which is exactly the pool a min-sum needs, so a deeper pool widens the set
     // of combos that can clear the floors.
@@ -54,7 +54,7 @@ internal static class ModuleOptimizerEngine
     /// <summary>
     /// Runs the optimizer: filter by category mask, prefilter to the top
     /// <see cref="PrefilterCount"/> by summed target-attr value, enumerate all
-    /// 4-combinations of that pool, drop any that fail the min-attr-sum floors
+    /// SlotCount-combinations of that pool, drop any that fail the min-attr-sum floors
     /// in <paramref name="minSums"/>, score the survivors by combat power, and
     /// return the top <paramref name="topN"/> by score (desc, stable). An empty
     /// list means either too few candidates or no combo cleared the floors.
