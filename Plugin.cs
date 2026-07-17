@@ -12,7 +12,7 @@ namespace Stellar.ModuleOptimizer;
 
 /// <summary>
 /// Two-window module equipment optimizer. The Targets window lets the user pick
-/// attribute goals and a category mask; Optimize then enumerates every 4-combination
+/// attribute goals and a category mask; Optimize then enumerates every 5-combination
 /// of the filtered <see cref="IInventory"/> pool, scores each with the
 /// <see cref="CombatPower"/> model, and shows the top-N ranked combos in a Results
 /// window. Apply drives a confirm → run → done/failed state machine that equips the
@@ -51,6 +51,15 @@ public sealed partial class Plugin : IStellarPlugin
     private const float ConfirmTimeoutS       = 3.0f;
     private const float SuccessFlashS         = 2.0f;
     private const float ForeignChangeTimeoutS = 5.0f;
+
+    // Inter-step pacing (owner report, live 3.7): back-to-back equip RPCs with
+    // zero gap are intermittently dropped by the server — the client-side poll
+    // still resolves (the game's local ModSlots map updates optimistically),
+    // so the drop is silent, leaving a partial apply. 300ms roughly matches
+    // the cadence of the game's own equip UI. The post-plan settle delay
+    // (before verifying the result) is double this, giving the last step's
+    // server ack time to land before we re-read the equipped set.
+    private const int InterStepDelayMs = 300;
 
     private const int CategoryMaskDefault = 7;   // Attack | Assist | Defend
 

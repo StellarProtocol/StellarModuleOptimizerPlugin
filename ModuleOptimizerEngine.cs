@@ -29,35 +29,49 @@ internal sealed class ModuleCombo
 /// <summary>
 /// Selection logic for the optimizer, ported from StarResonanceAutoMod. Scoring
 /// is the combat-power model in <see cref="CombatPower"/>: threshold-based on
-/// per-attribute SUMS, so it is NOT separable — the best 4-subset is not the 4
+/// per-attribute SUMS, so it is NOT separable — the best 5-subset is not the 5
 /// best individual modules. We therefore prefilter to a small candidate pool
-/// (mirroring AutoMod's <c>_prefilter_modules_by_total_scores</c>) and then
-/// brute-force every 4-combination of that pool, scoring each by combat power.
-/// C(<see cref="PrefilterCount"/>=40, 4) = 91390 combos — still trivial on a
-/// click, with enough headroom for strict min-attr-sum constraints (AutoMod's
-/// <c>-mas</c>; see <see cref="MeetsMinSums"/>) to be satisfiable.
+/// (mirroring AutoMod's <c>_prefilter_modules_by_total_scores</c>, extended with
+/// per-floor reservation — see <see cref="Prefilter"/> — so a scarce floored
+/// attr (AutoMod's <c>-mas</c>; see <see cref="MeetsMinSums"/>) can't be starved
+/// out by an unrelated target attr dominating the combined ranking) and then
+/// brute-force every SlotCount-combination of that pool, scoring each by combat
+/// power. C(<see cref="PrefilterCount"/>=40, 5) = 658,008 combos — still trivial
+/// on a click.
 ///
 /// A static, UnityEngine-free type (not a <c>Plugin</c> partial) so the algorithm
 /// is independently unit-testable.
 /// </summary>
 internal static class ModuleOptimizerEngine
 {
-    internal const int SlotCount = 4;
+    internal const int SlotCount = 5;
 
     // Candidate pool size after the total-score prefilter (AutoMod uses a tunable
-    // enumeration count). 40 keeps C(40,4)=91390 cheap while giving headroom for
-    // strict min-attr-sum floors: the prefilter ranks target-rich modules first,
-    // which is exactly the pool a min-sum needs, so a deeper pool widens the set
-    // of combos that can clear the floors.
+    // enumeration count). 40 keeps C(40,5)=658,008 cheap (~sub-second). NOTE: a
+    // combined-sum-only ranking is NOT sufficient on its own to satisfy floors —
+    // an abundant/high-rolling target attr can dominate the combined ranking and
+    // starve a scarcer floored attr out of the pool entirely (task-8). Prefilter
+    // therefore reserves room per floored attr (see FloorReserveCount) BEFORE
+    // filling the remaining slots by combined-sum, so the pool can satisfy any
+    // floor the inventory can actually reach.
     private const int PrefilterCount = 40;
+
+    // Per floored attr, the top this-many candidates ranked by THAT attr alone
+    // are reserved into the pool ahead of the ordinary combined-sum fill. A
+    // floor can be cleared by at most SlotCount modules, so reserving 10 leaves
+    // slack even after ties/near-misses, while capping worst-case reservation
+    // at FloorReserveCount * (number of floored attrs).
+    private const int FloorReserveCount = 10;
 
     /// <summary>
     /// Runs the optimizer: filter by category mask, prefilter to the top
-    /// <see cref="PrefilterCount"/> by summed target-attr value, enumerate all
-    /// 4-combinations of that pool, drop any that fail the min-attr-sum floors
-    /// in <paramref name="minSums"/>, score the survivors by combat power, and
-    /// return the top <paramref name="topN"/> by score (desc, stable). An empty
-    /// list means either too few candidates or no combo cleared the floors.
+    /// <see cref="PrefilterCount"/> — reserving room per floored attr in
+    /// <paramref name="minSums"/> before filling the rest by summed target-attr
+    /// value (see <see cref="Prefilter"/>) — enumerate all SlotCount-combinations
+    /// of that pool, drop any that fail the min-attr-sum floors, score the
+    /// survivors by combat power, and return the top <paramref name="topN"/> by
+    /// score (desc, stable). An empty list means either too few candidates or no
+    /// combo cleared the floors.
     /// </summary>
     internal static List<ModuleCombo> Optimize(
         ModuleSnapshot inventory,
@@ -74,27 +88,74 @@ internal static class ModuleOptimizerEngine
             return new List<ModuleCombo>();
         }
 
-        var pool = Prefilter(candidates, targetIds, PrefilterCount);
+        var pool = Prefilter(candidates, targetIds, PrefilterCount, minSums);
         return EnumerateTopCombos(pool, targetIds, topN, minSums);
     }
 
     private static bool CategoryInMask(ModuleCategory category, int mask)
         => (mask & (1 << ((int)category - 1))) != 0;
 
-    // Rank each module by the SUM of its part values for the target attrs (or all
-    // parts when no targets are selected — AutoMod's no-target fallback), and keep
-    // the top `count`. Stable tiebreak by Uuid so the pool is deterministic.
+    // Two-phase pool build: (1) reserve up to FloorReserveCount candidates per
+    // floored attr — ranked by THAT attr alone — so a scarce floor can never be
+    // starved out by an unrelated target attr dominating the combined ranking;
+    // (2) fill the remaining slots (up to `count` total) by the ordinary
+    // combined-sum-of-target-attrs ranking (or all parts when no targets are
+    // selected — AutoMod's no-target fallback), skipping anything already
+    // reserved. With no floored attrs, step 1 reserves nothing and this is
+    // byte-identical to the pre-fix single-phase ranking. Stable tiebreak by
+    // Uuid throughout so the pool is deterministic.
     private static List<ModuleInfo> Prefilter(
-        List<ModuleInfo> candidates, IReadOnlyList<int> targetIds, int count)
+        List<ModuleInfo> candidates, IReadOnlyList<int> targetIds, int count,
+        IReadOnlyDictionary<int, int>? minSums)
     {
         var hasTargets = targetIds.Count > 0;
         var targetSet = hasTargets ? new HashSet<int>(targetIds) : null;
 
-        return candidates
+        var pool = ReserveFloorCandidates(candidates, minSums, count);
+        var remaining = count - pool.Count;
+        if (remaining <= 0) return pool;
+
+        var reservedUuids = pool.Count > 0 ? new HashSet<long>(pool.Select(m => m.Uuid)) : null;
+        pool.AddRange(candidates
+            .Where(m => reservedUuids is null || !reservedUuids.Contains(m.Uuid))
             .OrderByDescending(m => SumForPrefilter(m, targetSet))
             .ThenByDescending(m => m.Uuid)
-            .Take(count)
-            .ToList();
+            .Take(remaining));
+
+        return pool;
+    }
+
+    // Reserves, per attr with a floor (minSums value > 0), the top
+    // FloorReserveCount candidates carrying a non-zero value for that attr
+    // (ranked desc by that attr's own value, Uuid-desc tiebreak). A module
+    // reserved by two floors counts once. Never returns more than `cap`
+    // entries — defensive against pathological inputs with more floored
+    // attrs than the pool can hold (worst case exercised by task-8's
+    // overflow-guard test: 4 floors * 10 reserves = 40 = the whole pool).
+    private static List<ModuleInfo> ReserveFloorCandidates(
+        List<ModuleInfo> candidates, IReadOnlyDictionary<int, int>? minSums, int cap)
+    {
+        var reserved = new List<ModuleInfo>();
+        if (minSums is null) return reserved;
+
+        var seenUuids = new HashSet<long>();
+        // Ascending attrId: truncation under reservation overflow must not depend on Dictionary insertion order.
+        foreach (var attrId in minSums.Where(kv => kv.Value > 0).Select(kv => kv.Key).OrderBy(id => id))
+        {
+            if (reserved.Count >= cap) break;
+
+            var topForAttr = candidates
+                .Where(m => AttrValue(m, attrId) > 0)
+                .OrderByDescending(m => AttrValue(m, attrId))
+                .ThenByDescending(m => m.Uuid)
+                .Take(FloorReserveCount);
+            foreach (var module in topForAttr)
+            {
+                if (reserved.Count >= cap) break;
+                if (seenUuids.Add(module.Uuid)) reserved.Add(module);
+            }
+        }
+        return reserved;
     }
 
     private static int SumForPrefilter(ModuleInfo module, HashSet<int>? targetSet)
@@ -107,10 +168,23 @@ internal static class ModuleOptimizerEngine
         return sum;
     }
 
-    // Enumerate every 4-combination of the prefiltered pool, score by combat power,
-    // drop combos that miss any min-attr-sum floor, keep the top `topN` by score
-    // (desc). OrderByDescending is stable, so ties preserve enumeration order
-    // (which is index-ascending over the pool).
+    private static int AttrValue(ModuleInfo module, int attrId)
+    {
+        var sum = 0;
+        foreach (var part in module.Parts)
+        {
+            if (part.AttrId == attrId) sum += part.Value;
+        }
+        return sum;
+    }
+
+    // Enumerate every SlotCount-combination of the prefiltered pool via an
+    // iterative lexicographic index array (replaces the former literal 4-deep
+    // nested loops, so the slot count lives in exactly one constant). Attr sums
+    // are accumulated into two REUSED dictionaries per candidate; scoring and
+    // ModuleCombo materialization happen only for combos that clear the
+    // min-attr-sum floors — not for all C(n,k) candidates. OrderByDescending is
+    // stable, so ties preserve enumeration order (index-ascending over the pool).
     private static List<ModuleCombo> EnumerateTopCombos(
         List<ModuleInfo> pool,
         IReadOnlyList<int> targetIds,
@@ -119,14 +193,30 @@ internal static class ModuleOptimizerEngine
     {
         var combos = new List<ModuleCombo>();
         var n = pool.Count;
-        for (var a = 0; a < n - 3; a++)
-        for (var b = a + 1; b < n - 2; b++)
-        for (var c = b + 1; c < n - 1; c++)
-        for (var d = c + 1; d < n; d++)
+        var k = SlotCount;
+        var idx = new int[k];
+        for (var i = 0; i < k; i++) idx[i] = i;
+        var breakdown = new Dictionary<int, int>();              // all attrs — combat-power input
+        var totals = new Dictionary<int, int>(targetIds.Count);  // target attrs — floor gate + preview
+
+        while (true)
         {
-            var modules = new List<ModuleInfo> { pool[a], pool[b], pool[c], pool[d] };
-            var combo = BuildCombo(modules, targetIds);
-            if (MeetsMinSums(combo, minSums)) combos.Add(combo);
+            AccumulateSums(pool, idx, targetIds, breakdown, totals);
+            if (MeetsMinSums(totals, minSums))
+            {
+                var modules = new ModuleInfo[k];
+                for (var i = 0; i < k; i++) modules[i] = pool[idx[i]];
+                combos.Add(new ModuleCombo(
+                    modules, CombatPower.Score(breakdown), new Dictionary<int, int>(totals)));
+            }
+
+            // Advance to the next lexicographic combination; done when the
+            // leftmost index can no longer move.
+            var pos = k - 1;
+            while (pos >= 0 && idx[pos] == n - k + pos) pos--;
+            if (pos < 0) break;
+            idx[pos]++;
+            for (var i = pos + 1; i < k; i++) idx[i] = idx[i - 1] + 1;
         }
 
         return combos
@@ -135,39 +225,46 @@ internal static class ModuleOptimizerEngine
             .ToList();
     }
 
+    // Recompute the per-attr sums for the candidate at `idx`: `breakdown` gets
+    // every attr (combat-power input), `totals` only the target attrs (floor
+    // gate + ProjectedAttrTotals). Both are cleared and refilled — reused
+    // across candidates to avoid per-candidate garbage.
+    private static void AccumulateSums(
+        List<ModuleInfo> pool, int[] idx, IReadOnlyList<int> targetIds,
+        Dictionary<int, int> breakdown, Dictionary<int, int> totals)
+    {
+        breakdown.Clear();
+        totals.Clear();
+        foreach (var id in targetIds) totals[id] = 0;
+        for (var i = 0; i < idx.Length; i++)
+        {
+            foreach (var part in pool[idx[i]].Parts)
+            {
+                breakdown.TryGetValue(part.AttrId, out var prev);
+                breakdown[part.AttrId] = prev + part.Value;
+                if (totals.ContainsKey(part.AttrId)) totals[part.AttrId] += part.Value;
+            }
+        }
+    }
+
     /// <summary>
     /// Hard min-attr-sum gate (AutoMod's <c>-mas</c> / <c>_filter_by_min_attr</c>):
     /// the combo passes iff, for EVERY attr with a floor &gt; 0, its summed total
-    /// across the 4 modules is &gt;= the floor. A null/empty map, or all-zero
-    /// floors, means no constraint (everything passes). This is a FILTER only —
-    /// the combat-power score is unaffected.
+    /// across the SlotCount picked modules is &gt;= the floor. Floors are read
+    /// against the TARGET-attr totals (an attr absent from the current targets
+    /// counts as 0 — unchanged semantics). A null/empty map, or all-zero floors,
+    /// means no constraint. This is a FILTER only — the score is unaffected.
     /// </summary>
-    internal static bool MeetsMinSums(ModuleCombo combo, IReadOnlyDictionary<int, int>? minSums)
+    internal static bool MeetsMinSums(
+        IReadOnlyDictionary<int, int> totals, IReadOnlyDictionary<int, int>? minSums)
     {
         if (minSums is null) return true;
         foreach (var kv in minSums)
         {
             if (kv.Value <= 0) continue;
-            combo.ProjectedAttrTotals.TryGetValue(kv.Key, out var total);
+            totals.TryGetValue(kv.Key, out var total);
             if (total < kv.Value) return false;
         }
         return true;
-    }
-
-    private static ModuleCombo BuildCombo(List<ModuleInfo> modules, IReadOnlyList<int> targetIds)
-    {
-        var totals = new Dictionary<int, int>(targetIds.Count);
-        foreach (var id in targetIds) totals[id] = 0;
-
-        foreach (var m in modules)
-        {
-            foreach (var part in m.Parts)
-            {
-                if (totals.ContainsKey(part.AttrId)) totals[part.AttrId] += part.Value;
-            }
-        }
-
-        var score = CombatPower.ScoreCombo(modules);
-        return new ModuleCombo(modules, score, totals);
     }
 }

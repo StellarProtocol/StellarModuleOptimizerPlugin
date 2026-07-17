@@ -192,7 +192,7 @@ public sealed partial class Plugin
         })),
         new ConditionalElement(() => !EmptyIsFloorProblem(), new ColumnElement(new HudElement[]
         {
-            new TextElement(() => "Need at least 4 modules in selected categories.", Muted),
+            new TextElement(() => $"Need at least {SlotCount} modules in selected categories.", Muted),
             new TextElement(() => $"({_lastCandidateCount} matching modules in inventory)", Muted),
         })),
         new ButtonElement(() => "Adjust targets", () => ShowAndPersist(_mainWindow, "targets_visible")),

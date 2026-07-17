@@ -21,9 +21,13 @@ public sealed partial class Plugin
 {
     private enum ApplyState { Idle, Confirm, Running, Done, Failed }
 
-    private enum StepKind { Uninstall, Install }
+    // internal (not private): ComputeRetrySteps below is unit-tested from
+    // Stellar.ModuleOptimizer.Tests via InternalsVisibleTo, and its signature
+    // returns ApplyStep — accessibility consistency requires both nested
+    // types to be at least as visible as that method.
+    internal enum StepKind { Uninstall, Install }
 
-    private readonly record struct ApplyStep(int Slot, StepKind Kind, long ModuleUuid, string ModuleName);
+    internal readonly record struct ApplyStep(int Slot, StepKind Kind, long ModuleUuid, string ModuleName);
 
     private ApplyState _applyState = ApplyState.Idle;
     private int _applyComboIndex = -1;
@@ -31,6 +35,9 @@ public sealed partial class Plugin
 
     private List<ApplyStep> _applyPlan = new();
     private int _applyStepIndex;                 // 1-based index of the dispatched step
+    private int _appliedSlotCount;                // distinct slots the main plan changes — snapshotted at
+                                                   // StartApply so the Done footer summary survives _applyPlan
+                                                   // being repointed at the verify+retry batch (see VerifyAndRetryAsync)
     private CancellationTokenSource? _applyCts;
 
     // Failed-state display.
@@ -186,6 +193,7 @@ public sealed partial class Plugin
     private void StartApply(ModuleCombo combo)
     {
         _applyPlan = BuildPlan(combo);
+        _appliedSlotCount = CountSlots(_applyPlan);
         if (_applyPlan.Count == 0)
         {
             // Nothing to change — treat as instant success flash.
@@ -200,35 +208,64 @@ public sealed partial class Plugin
         _applyStateChangedAt = SafeTimeNow();
         _applyCts = new CancellationTokenSource();
         LogApplyStart(_applyComboIndex, _applyPlan.Count);
-        _ = RunApplyFlow(_applyCts.Token);
+        _ = RunApplyFlow(_applyCts.Token, combo.Modules);
     }
 
-    private async Task RunApplyFlow(CancellationToken ct)
+    private async Task RunApplyFlow(CancellationToken ct, IReadOnlyList<ModuleInfo> targetModules)
     {
         try
         {
-            for (var i = 0; i < _applyPlan.Count; i++)
-            {
-                if (ct.IsCancellationRequested)
-                {
-                    EnterFailed(i, EquipResult.Cancelled,
-                        $"Cancelled ({i} / {_applyPlan.Count} steps completed).");
-                    return;
-                }
+            if (!await RunStepsAsync(ct).ConfigureAwait(true))
+                return;
 
-                _applyStepIndex = i + 1;
-                var step = _applyPlan[i];
-                if (!await ExecuteStepAsync(step, i, ct).ConfigureAwait(true))
-                    return;
-            }
+            if (!await VerifyAndRetryAsync(targetModules, ct).ConfigureAwait(true))
+                return;
 
             EnterDone();
+        }
+        catch (OperationCanceledException)
+        {
+            // Task.Delay(InterStepDelayMs, ct) (inter-step pacing / post-plan
+            // settle) throws on cancellation rather than returning a result —
+            // fold it into the same "Cancelled" reporting the rest of the flow
+            // uses instead of letting it fall into the generic branch below.
+            EnterFailed(Mathf.Max(1, _applyStepIndex), EquipResult.Cancelled,
+                $"Cancelled ({_applyStepIndex} / {_applyPlan.Count} steps completed).");
         }
         catch (Exception ex)
         {
             EnterFailed(Mathf.Max(1, _applyStepIndex), EquipResult.RpcError,
                 $"Apply flow error: {ex.Message}");
         }
+    }
+
+    // Runs every step of the currently-assigned `_applyPlan` (the main plan on
+    // the first call; the retry batch on a second call from VerifyAndRetryAsync
+    // — see the reassignment there) with InterStepDelayMs pacing between
+    // steps. Rapid-fire equip RPCs with no gap are intermittently dropped by
+    // the server (owner report, live 3.7), so we pace every step but the last
+    // one in the current batch. Returns false once EnterFailed has already
+    // been called (caller should stop); true once every step completed.
+    private async Task<bool> RunStepsAsync(CancellationToken ct)
+    {
+        for (var i = 0; i < _applyPlan.Count; i++)
+        {
+            if (ct.IsCancellationRequested)
+            {
+                EnterFailed(i, EquipResult.Cancelled,
+                    $"Cancelled ({i} / {_applyPlan.Count} steps completed).");
+                return false;
+            }
+
+            _applyStepIndex = i + 1;
+            var step = _applyPlan[i];
+            if (!await ExecuteStepAsync(step, i, ct).ConfigureAwait(true))
+                return false;
+
+            if (i < _applyPlan.Count - 1)
+                await Task.Delay(InterStepDelayMs, ct).ConfigureAwait(true);
+        }
+        return true;
     }
 
     // Execute one apply step (uninstall or install), perform the post-step
