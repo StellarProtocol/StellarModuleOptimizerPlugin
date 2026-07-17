@@ -10,10 +10,14 @@
     <Version>1.1.0</Version>
     <Deterministic>true</Deterministic>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Stellar.Abstractions" Version="1.1.1" />
     <PackageReference Include="Stellar.Plugin.InteropRefs" Version="1.1.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Stellar.ModuleOptimizer.Tests" />
   </ItemGroup>
 
   <!-- Launcher tile icon (raw PNG bytes passed as LauncherEntry.IconPng; the framework rasterises it).
