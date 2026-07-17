@@ -122,7 +122,11 @@ public sealed partial class Plugin
         () => _applyState == ApplyState.Done,
         new ColumnElement(new HudElement[]
         {
-            new TextElement(() => $"✓ Applied {CountSlots(_applyPlan)} changes.", () => SuccessColor),
+            // _appliedSlotCount (not CountSlots(_applyPlan)): a successful
+            // verify+retry pass repoints _applyPlan at the smaller retry
+            // batch, so the original main-plan slot count is snapshotted at
+            // StartApply instead of recomputed here (see Plugin.Apply.cs).
+            new TextElement(() => $"✓ Applied {_appliedSlotCount} changes.", () => SuccessColor),
             new TextElement(DoneScoreLine),
         }));
 
