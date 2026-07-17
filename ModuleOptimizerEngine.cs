@@ -107,10 +107,13 @@ internal static class ModuleOptimizerEngine
         return sum;
     }
 
-    // Enumerate every 4-combination of the prefiltered pool, score by combat power,
-    // drop combos that miss any min-attr-sum floor, keep the top `topN` by score
-    // (desc). OrderByDescending is stable, so ties preserve enumeration order
-    // (which is index-ascending over the pool).
+    // Enumerate every SlotCount-combination of the prefiltered pool via an
+    // iterative lexicographic index array (replaces the former literal 4-deep
+    // nested loops, so the slot count lives in exactly one constant). Attr sums
+    // are accumulated into two REUSED dictionaries per candidate; scoring and
+    // ModuleCombo materialization happen only for combos that clear the
+    // min-attr-sum floors — not for all C(n,k) candidates. OrderByDescending is
+    // stable, so ties preserve enumeration order (index-ascending over the pool).
     private static List<ModuleCombo> EnumerateTopCombos(
         List<ModuleInfo> pool,
         IReadOnlyList<int> targetIds,
@@ -119,14 +122,30 @@ internal static class ModuleOptimizerEngine
     {
         var combos = new List<ModuleCombo>();
         var n = pool.Count;
-        for (var a = 0; a < n - 3; a++)
-        for (var b = a + 1; b < n - 2; b++)
-        for (var c = b + 1; c < n - 1; c++)
-        for (var d = c + 1; d < n; d++)
+        var k = SlotCount;
+        var idx = new int[k];
+        for (var i = 0; i < k; i++) idx[i] = i;
+        var breakdown = new Dictionary<int, int>();              // all attrs — combat-power input
+        var totals = new Dictionary<int, int>(targetIds.Count);  // target attrs — floor gate + preview
+
+        while (true)
         {
-            var modules = new List<ModuleInfo> { pool[a], pool[b], pool[c], pool[d] };
-            var combo = BuildCombo(modules, targetIds);
-            if (MeetsMinSums(combo, minSums)) combos.Add(combo);
+            AccumulateSums(pool, idx, targetIds, breakdown, totals);
+            if (MeetsMinSums(totals, minSums))
+            {
+                var modules = new ModuleInfo[k];
+                for (var i = 0; i < k; i++) modules[i] = pool[idx[i]];
+                combos.Add(new ModuleCombo(
+                    modules, CombatPower.Score(breakdown), new Dictionary<int, int>(totals)));
+            }
+
+            // Advance to the next lexicographic combination; done when the
+            // leftmost index can no longer move.
+            var pos = k - 1;
+            while (pos >= 0 && idx[pos] == n - k + pos) pos--;
+            if (pos < 0) break;
+            idx[pos]++;
+            for (var i = pos + 1; i < k; i++) idx[i] = idx[i - 1] + 1;
         }
 
         return combos
@@ -135,39 +154,46 @@ internal static class ModuleOptimizerEngine
             .ToList();
     }
 
+    // Recompute the per-attr sums for the candidate at `idx`: `breakdown` gets
+    // every attr (combat-power input), `totals` only the target attrs (floor
+    // gate + ProjectedAttrTotals). Both are cleared and refilled — reused
+    // across candidates to avoid per-candidate garbage.
+    private static void AccumulateSums(
+        List<ModuleInfo> pool, int[] idx, IReadOnlyList<int> targetIds,
+        Dictionary<int, int> breakdown, Dictionary<int, int> totals)
+    {
+        breakdown.Clear();
+        totals.Clear();
+        foreach (var id in targetIds) totals[id] = 0;
+        for (var i = 0; i < idx.Length; i++)
+        {
+            foreach (var part in pool[idx[i]].Parts)
+            {
+                breakdown.TryGetValue(part.AttrId, out var prev);
+                breakdown[part.AttrId] = prev + part.Value;
+                if (totals.ContainsKey(part.AttrId)) totals[part.AttrId] += part.Value;
+            }
+        }
+    }
+
     /// <summary>
     /// Hard min-attr-sum gate (AutoMod's <c>-mas</c> / <c>_filter_by_min_attr</c>):
     /// the combo passes iff, for EVERY attr with a floor &gt; 0, its summed total
-    /// across the 4 modules is &gt;= the floor. A null/empty map, or all-zero
-    /// floors, means no constraint (everything passes). This is a FILTER only —
-    /// the combat-power score is unaffected.
+    /// across the SlotCount picked modules is &gt;= the floor. Floors are read
+    /// against the TARGET-attr totals (an attr absent from the current targets
+    /// counts as 0 — unchanged semantics). A null/empty map, or all-zero floors,
+    /// means no constraint. This is a FILTER only — the score is unaffected.
     /// </summary>
-    internal static bool MeetsMinSums(ModuleCombo combo, IReadOnlyDictionary<int, int>? minSums)
+    internal static bool MeetsMinSums(
+        IReadOnlyDictionary<int, int> totals, IReadOnlyDictionary<int, int>? minSums)
     {
         if (minSums is null) return true;
         foreach (var kv in minSums)
         {
             if (kv.Value <= 0) continue;
-            combo.ProjectedAttrTotals.TryGetValue(kv.Key, out var total);
+            totals.TryGetValue(kv.Key, out var total);
             if (total < kv.Value) return false;
         }
         return true;
-    }
-
-    private static ModuleCombo BuildCombo(List<ModuleInfo> modules, IReadOnlyList<int> targetIds)
-    {
-        var totals = new Dictionary<int, int>(targetIds.Count);
-        foreach (var id in targetIds) totals[id] = 0;
-
-        foreach (var m in modules)
-        {
-            foreach (var part in m.Parts)
-            {
-                if (totals.ContainsKey(part.AttrId)) totals[part.AttrId] += part.Value;
-            }
-        }
-
-        var score = CombatPower.ScoreCombo(modules);
-        return new ModuleCombo(modules, score, totals);
     }
 }
