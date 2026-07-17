@@ -196,4 +196,87 @@ public class PrefilterFloorTests
             }
         });
     }
+
+    // --- Test 6: five-floored overflow + determinism -------------------------
+    // 5 floored attrs with 11 carriers each (55 total > PrefilterCount 40), so
+    // ReserveFloorCandidates will overflow: truncation order depends on which
+    // attr is processed last when the cap is hit. Without canonical iteration
+    // (ascending attrId), different insertion orders of the minSums dict would
+    // truncate different attrs, yielding different pools and combos. With
+    // canonical order, the same attr is always truncated, yielding identical
+    // results. Asserts: (a) no exception on both insertion orders; (b) returned
+    // combos (if any) satisfy all floors they can satisfy (attrs in the pool);
+    // (c) determinism: both insertion orders (ascending then descending attrId)
+    // yield identical combo uuid-set sequences.
+    [Fact]
+    public void Optimize_five_floored_attrs_overflow_and_deterministic()
+    {
+        var floorIds = new[] { 9201, 9202, 9203, 9204, 9205 }; // 5 attrs
+        var carrierGroups = floorIds
+            .Select(id => Enumerable.Range(0, 11) // 11 carriers per attr, total 55 > 40 cap
+                .Select(i => TestModules.Mod(parts: (id, i + 1))) // values 1..11 per group
+                .ToArray())
+            .ToArray();
+
+        var allModules = carrierGroups.SelectMany(g => g).ToArray();
+        var snap = TestModules.Snap(allModules);
+        var targets = new List<int>(floorIds);
+
+        // Build floors dict with attrs in ASCENDING order.
+        var floorsAscending = new Dictionary<int, int>();
+        foreach (var id in floorIds.OrderBy(x => x))
+        {
+            floorsAscending[id] = 5; // satisfiable per-attr if that attr is in the pool
+        }
+
+        // Build floors dict with attrs in DESCENDING order.
+        var floorsDescending = new Dictionary<int, int>();
+        foreach (var id in floorIds.OrderByDescending(x => x))
+        {
+            floorsDescending[id] = 5;
+        }
+
+        // Run both.
+        var combosAscending = ModuleOptimizerEngine.Optimize(snap, targets, AllCategories, topN: 1000, floorsAscending);
+        var combosDescending = ModuleOptimizerEngine.Optimize(snap, targets, AllCategories, topN: 1000, floorsDescending);
+
+        // (a) Both should complete without exception.
+        // (b) All returned combos satisfy all floors they can satisfy (attrs in their module set).
+        var poolAttrIdsAscending = combosAscending.SelectMany(c => c.Modules).Select(m => m.Parts.Select(p => p.AttrId)).SelectMany(x => x).Distinct().ToHashSet();
+        Assert.All(combosAscending, c =>
+        {
+            foreach (var (id, floor) in floorsAscending)
+            {
+                if (poolAttrIdsAscending.Contains(id))
+                {
+                    Assert.True(c.ProjectedAttrTotals[id] >= floor, $"Ascending: attr {id} in pool but failed floor");
+                }
+            }
+            Assert.Equal(ModuleOptimizerEngine.SlotCount, c.Modules.Count);
+        });
+
+        var poolAttrIdsDescending = combosDescending.SelectMany(c => c.Modules).Select(m => m.Parts.Select(p => p.AttrId)).SelectMany(x => x).Distinct().ToHashSet();
+        Assert.All(combosDescending, c =>
+        {
+            foreach (var (id, floor) in floorsDescending)
+            {
+                if (poolAttrIdsDescending.Contains(id))
+                {
+                    Assert.True(c.ProjectedAttrTotals[id] >= floor, $"Descending: attr {id} in pool but failed floor");
+                }
+            }
+            Assert.Equal(ModuleOptimizerEngine.SlotCount, c.Modules.Count);
+        });
+
+        // (c) Determinism: both insertion orders yield identical combo sequences
+        // (same pool → same combos, regardless of dict insertion order).
+        Assert.Equal(combosAscending.Count, combosDescending.Count);
+        var keysAscending = combosAscending
+            .Select(c => string.Join(",", c.Modules.OrderBy(m => m.Uuid).Select(m => m.Uuid)))
+            .ToList();
+        var keysDescending = combosDescending
+            .Select(c => string.Join(",", c.Modules.OrderBy(m => m.Uuid).Select(m => m.Uuid)))
+            .ToList();
+        Assert.Equal(keysAscending, keysDescending);
+    }
 }

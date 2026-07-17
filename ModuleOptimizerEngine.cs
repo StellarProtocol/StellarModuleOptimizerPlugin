@@ -139,14 +139,14 @@ internal static class ModuleOptimizerEngine
         if (minSums is null) return reserved;
 
         var seenUuids = new HashSet<long>();
-        foreach (var kv in minSums)
+        // Ascending attrId: truncation under reservation overflow must not depend on Dictionary insertion order.
+        foreach (var attrId in minSums.Where(kv => kv.Value > 0).Select(kv => kv.Key).OrderBy(id => id))
         {
             if (reserved.Count >= cap) break;
-            if (kv.Value <= 0) continue;
 
             var topForAttr = candidates
-                .Where(m => AttrValue(m, kv.Key) > 0)
-                .OrderByDescending(m => AttrValue(m, kv.Key))
+                .Where(m => AttrValue(m, attrId) > 0)
+                .OrderByDescending(m => AttrValue(m, attrId))
                 .ThenByDescending(m => m.Uuid)
                 .Take(FloorReserveCount);
             foreach (var module in topForAttr)
