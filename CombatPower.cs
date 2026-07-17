@@ -46,6 +46,10 @@ internal static class CombatPower
     /// <summary>
     /// Total-attr-value → power. Sparse on purpose: 9–17 and 107–112 are absent
     /// so a lookup miss yields 0 (mirrors AutoMod's <c>TOTAL_ATTR_POWER_MAP.get</c>).
+    /// Tops out at 120 DELIBERATELY — 5-module totals above it score 0 total_power,
+    /// matching the reference tool's own 5-module mode (AutoMod commit a365df5, which
+    /// kept the map unchanged). See the 2026-07-17 spec amendment + the
+    /// <c>Score_above_120_total_drops_total_power_matching_reference_tool</c> test.
     /// </summary>
     internal static readonly IReadOnlyDictionary<int, int> TotalAttrPowerMap = BuildTotalMap();
 
