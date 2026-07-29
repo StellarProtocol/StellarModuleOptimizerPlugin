@@ -160,7 +160,9 @@ public sealed partial class Plugin : IStellarPlugin
                 DefaultRect: new WindowRect(1218f, 514f, TargetsWidth, 0f),
                 Category:    WindowCategory.Tools,
                 Style:       WindowPanelStyle.GlassMenu)
-            { StartVisible = targetsVisibleAtBoot, HideUntilInWorld = true, Closable = true, Draggable = true },
+            { StartVisible = targetsVisibleAtBoot, Closable = true, Draggable = true,
+              // Gameplay tool: operates on live equipment/inventory, so draw only while in-world.
+              ShouldRender = () => _services.ClientState.Phase == GamePhase.World },
             BuildTargetsRoot(),
             OnClose: () => HideAndPersist(_mainWindow!, "targets_visible")));
 
@@ -171,7 +173,9 @@ public sealed partial class Plugin : IStellarPlugin
                 DefaultRect: new WindowRect(655f, 618f, ResultsWidth, 0f),
                 Category:    WindowCategory.Tools,
                 Style:       WindowPanelStyle.GlassMenu)
-            { StartVisible = resultsVisibleAtBoot, HideUntilInWorld = true, Closable = true, Draggable = true },
+            { StartVisible = resultsVisibleAtBoot, Closable = true, Draggable = true,
+              // Results panel for the same in-world optimization flow.
+              ShouldRender = () => _services.ClientState.Phase == GamePhase.World },
             BuildResultsRoot(),
             OnClose: () =>
             {
