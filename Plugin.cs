@@ -193,7 +193,8 @@ public sealed partial class Plugin : IStellarPlugin
             callback: ToggleAndPersistTargets);
 
         _launcherEntry = _services.Launcher.Register(new LauncherEntry(
-            "Module Optimizer", LoadIconPng(), IconKey: null, OnOpen: ToggleAndPersistTargets));
+            "Module Optimizer", LoadIconPng(), IconKey: null, OnOpen: ToggleAndPersistTargets)
+        { ShouldShow = () => _services.ClientState.Phase == GamePhase.World });
     }
 
     private static byte[]? LoadIconPng()
