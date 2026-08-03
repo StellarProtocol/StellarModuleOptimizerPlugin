@@ -86,7 +86,7 @@ public sealed partial class Plugin
 
     private void OnApplyClicked(int index, ModuleCombo combo)
     {
-        var now = SafeTimeNow();
+        var now = _services.Framework.TimeNow;
         switch (_applyState)
         {
             case ApplyState.Idle:
@@ -198,14 +198,14 @@ public sealed partial class Plugin
         {
             // Nothing to change — treat as instant success flash.
             _applyState = ApplyState.Done;
-            _applyStateChangedAt = SafeTimeNow();
+            _applyStateChangedAt = _services.Framework.TimeNow;
             return;
         }
 
         _preApplyEquippedScore = ComputeEquippedScore();
         _applyStepIndex = 0;
         _applyState = ApplyState.Running;
-        _applyStateChangedAt = SafeTimeNow();
+        _applyStateChangedAt = _services.Framework.TimeNow;
         _applyCts = new CancellationTokenSource();
         LogApplyStart(_applyComboIndex, _applyPlan.Count);
         _ = RunApplyFlow(_applyCts.Token, combo.Modules);
@@ -311,7 +311,7 @@ public sealed partial class Plugin
     private Task<bool> PromptForeignChange()
     {
         _foreignPrompt = true;
-        _foreignPromptAt = SafeTimeNow();
+        _foreignPromptAt = _services.Framework.TimeNow;
         _foreignContinue = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         return _foreignContinue.Task;
@@ -324,7 +324,7 @@ public sealed partial class Plugin
         // "already equipped" markers reflect the new state.
         _equippedCacheDirty = true;
         _applyState = ApplyState.Done;
-        _applyStateChangedAt = SafeTimeNow();
+        _applyStateChangedAt = _services.Framework.TimeNow;
         LogApplyTransition("Done");
     }
 
@@ -334,7 +334,7 @@ public sealed partial class Plugin
         _failedResult = result;
         _failedSubLine = subLine;
         _applyState = ApplyState.Failed;
-        _applyStateChangedAt = SafeTimeNow();
+        _applyStateChangedAt = _services.Framework.TimeNow;
         LogApplyTransition($"Failed ({result})");
     }
 

@@ -247,7 +247,7 @@ public sealed partial class Plugin : IStellarPlugin
 
     private void OnUpdate(float deltaTime)
     {
-        var now = SafeTimeNow();
+        var now = _services.Framework.TimeNow;
         AdvanceApplyState(now);
 
         // Lazy availability flip: IInventory has no "became available" event, so
@@ -362,11 +362,6 @@ public sealed partial class Plugin : IStellarPlugin
         if (!string.IsNullOrEmpty(name)) return name!;
         LogOrphanAttr(attrId);
         return "#" + attrId.ToString(CultureInfo.InvariantCulture);
-    }
-
-    private static float SafeTimeNow()
-    {
-        try { return Time.realtimeSinceStartup; } catch { return 0f; }
     }
 
     // Union of all AttrIds in the inventory snapshot minus current targets, sorted
