@@ -160,7 +160,10 @@ public sealed partial class Plugin : IStellarPlugin
                 DefaultRect: new WindowRect(1218f, 514f, TargetsWidth, 0f),
                 Category:    WindowCategory.Tools,
                 Style:       WindowPanelStyle.GlassMenu)
-            { StartVisible = targetsVisibleAtBoot, HideUntilInWorld = true, Closable = true, Draggable = true },
+            { StartVisible = targetsVisibleAtBoot, Closable = true, Draggable = true,
+              // Gameplay tool: operates on live equipment/inventory, so draw only while in-world.
+              ShouldRender = () => _services.ClientState.Phase == GamePhase.World
+                                   && (_services.ClientState.UiState & GameUIState.Loading) == 0 },
             BuildTargetsRoot(),
             OnClose: () => HideAndPersist(_mainWindow!, "targets_visible")));
 
@@ -171,7 +174,10 @@ public sealed partial class Plugin : IStellarPlugin
                 DefaultRect: new WindowRect(655f, 618f, ResultsWidth, 0f),
                 Category:    WindowCategory.Tools,
                 Style:       WindowPanelStyle.GlassMenu)
-            { StartVisible = resultsVisibleAtBoot, HideUntilInWorld = true, Closable = true, Draggable = true },
+            { StartVisible = resultsVisibleAtBoot, Closable = true, Draggable = true,
+              // Results panel for the same in-world optimization flow.
+              ShouldRender = () => _services.ClientState.Phase == GamePhase.World
+                                   && (_services.ClientState.UiState & GameUIState.Loading) == 0 },
             BuildResultsRoot(),
             OnClose: () =>
             {
@@ -187,7 +193,8 @@ public sealed partial class Plugin : IStellarPlugin
             callback: ToggleAndPersistTargets);
 
         _launcherEntry = _services.Launcher.Register(new LauncherEntry(
-            "Module Optimizer", LoadIconPng(), IconKey: null, OnOpen: ToggleAndPersistTargets));
+            "Module Optimizer", LoadIconPng(), IconKey: null, OnOpen: ToggleAndPersistTargets)
+        { ShouldShow = () => _services.ClientState.Phase == GamePhase.World });
     }
 
     private static byte[]? LoadIconPng()
@@ -240,7 +247,7 @@ public sealed partial class Plugin : IStellarPlugin
 
     private void OnUpdate(float deltaTime)
     {
-        var now = SafeTimeNow();
+        var now = _services.Framework.TimeNow;
         AdvanceApplyState(now);
 
         // Lazy availability flip: IInventory has no "became available" event, so
@@ -355,11 +362,6 @@ public sealed partial class Plugin : IStellarPlugin
         if (!string.IsNullOrEmpty(name)) return name!;
         LogOrphanAttr(attrId);
         return "#" + attrId.ToString(CultureInfo.InvariantCulture);
-    }
-
-    private static float SafeTimeNow()
-    {
-        try { return Time.realtimeSinceStartup; } catch { return 0f; }
     }
 
     // Union of all AttrIds in the inventory snapshot minus current targets, sorted

@@ -151,5 +151,5 @@ public sealed partial class Plugin
             }, Gap: 6f),
         }));
 
-    private float Countdown(float window, float since) => Math.Max(0f, window - (SafeTimeNow() - since));
+    private float Countdown(float window, float since) => Math.Max(0f, window - (_services.Framework.TimeNow - since));
 }

@@ -79,7 +79,7 @@ public sealed partial class Plugin
 
     private void RunOptimize(ModuleSnapshot snap)
     {
-        var start = SafeTimeNow();
+        var start = _services.Framework.TimeNow;
         _combos = ModuleOptimizerEngine.Optimize(snap, _targetIds, _categoryMask, _topN, _minSums);
         _lastCandidateCount = CountInMask(snap);
         _hadMinSumFloors = HasActiveMinSums();
@@ -91,7 +91,7 @@ public sealed partial class Plugin
 
         ShowAndPersist(_resultsWindow, "results_visible");
 
-        LogOptimize(snap.Modules.Count, _combos.Count, SafeTimeNow() - start);
+        LogOptimize(snap.Modules.Count, _combos.Count, _services.Framework.TimeNow - start);
     }
 
     // ---- Element tree -------------------------------------------------------
