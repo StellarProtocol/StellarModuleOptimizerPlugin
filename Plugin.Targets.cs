@@ -25,7 +25,7 @@ public sealed partial class Plugin
     private HudElement BuildTargetsRoot() => new ColumnElement(new HudElement[]
     {
         // Categories
-        new TextElement(() => "Categories:", Emphasis: true),
+        new TextElement(() => _loc.T("mo.categories"), Emphasis: true),
         new RowElement(new HudElement[]
         {
             CategoryToggle("Attack", ModuleCategory.Attack),
@@ -36,11 +36,11 @@ public sealed partial class Plugin
 
         // Target attributes (or empty-state)
         new ConditionalElement(() => !_invAvailable,
-            new TextElement(() => "Not in-world — inventory unavailable.", Muted)),
+            new TextElement(() => _loc.T("mo.notInWorld"), Muted)),
         new ConditionalElement(() => _invAvailable && _invModuleCount == 0,
             new ColumnElement(new HudElement[]
             {
-                new TextElement(() => "No modules in inventory.", Muted),
+                new TextElement(() => _loc.T("mo.noModules"), Muted),
                 new TextElement(() => "(Pick some up in-world to get started.)", Muted),
             })),
         new ConditionalElement(() => _invAvailable && _invModuleCount > 0, BuildTargetSection()),
@@ -63,7 +63,7 @@ public sealed partial class Plugin
 
     private HudElement BuildTargetSection() => new ColumnElement(new HudElement[]
     {
-        new TextElement(() => "Target attributes:", Emphasis: true),
+        new TextElement(() => _loc.T("mo.targetAttrs"), Emphasis: true),
         new ConditionalElement(() => _targetIds.Count == 0,
             new TextElement(() => "  ⓘ Pick at least one target attribute.", Muted)),
         new ConditionalElement(() => _targetIds.Count > 0, new ColumnElement(new HudElement[]
@@ -71,7 +71,7 @@ public sealed partial class Plugin
             // Header: the per-row "≥" field is a minimum TOTAL the final combo must reach.
             new RowElement(new HudElement[]
             {
-                new CellElement(new TextElement(() => "Attribute", Muted), Weight: 1f),
+                new CellElement(new TextElement(() => _loc.T("mo.attribute"), Muted), Weight: 1f),
                 new TextElement(() => "min ≥", Muted),
                 new SpacerElement(MinSumInputW + 28f),
             }, Gap: 6f),
@@ -153,30 +153,30 @@ public sealed partial class Plugin
         {
             new RowElement(new HudElement[]
             {
-                new TextElement(() => "Search:", Muted, Width: 52f),
+                new TextElement(() => _loc.T("mo.search"), Muted, Width: 52f),
                 new InputElement(() => _pickerSearch, _ => { }, 180f,
                     OnChange: s => { _pickerSearch = s; RebuildPickerSource(); }),
             }, Gap: 4f),
             new ConditionalElement(() => !_services.GameData.IsAvailable,
-                new TextElement(() => "Loading attributes…", Muted)),
+                new TextElement(() => _loc.T("mo.loading"), Muted)),
             new ConditionalElement(() => _services.GameData.IsAvailable,
                 new ScrollElement(new ListElement(() => _pickerVisible.Count, slots), PickerHeight)),
             new ConditionalElement(() => _services.GameData.IsAvailable && _pickerVisible.Count == 0,
                 new TextElement(() => _pickerSearch.Trim().Length > 0
-                    ? $"No attributes match '{_pickerSearch.Trim()}'"
+                    ? _loc.TFormat("mo.noMatch", _pickerSearch.Trim())
                     : "No attributes available.", Muted)),
         });
     }
 
     private HudElement BuildTargetsFooter() => new ColumnElement(new HudElement[]
     {
-        new TextElement(() => _invAvailable ? $"Inventory: {_invModuleCount} modules" : "Inventory: —", Emphasis: true),
-        new TextElement(() => _invAvailable ? $"Equipped:  {_invEquippedSlotCount} / {SlotCount} slots" : "Equipped:  —", Emphasis: true),
+        new TextElement(() => _invAvailable ? _loc.TFormat("mo.inventory", _invModuleCount) : _loc.T("mo.inventoryNone"), Emphasis: true),
+        new TextElement(() => _invAvailable ? _loc.TFormat("mo.equipped", _invEquippedSlotCount, SlotCount) : _loc.T("mo.equippedNone"), Emphasis: true),
 
         // Show-top-N stepper.
         new RowElement(new HudElement[]
         {
-            new TextElement(() => "Show top", Muted),
+            new TextElement(() => _loc.T("mo.showTop"), Muted),
             new ButtonElement(() => "−", () => SetTopN(_topN - 1), Width: 26f),
             new TextElement(() => _topN.ToString(CultureInfo.InvariantCulture), Width: 30f),
             new ButtonElement(() => "+", () => SetTopN(_topN + 1), Width: 26f),
@@ -187,7 +187,7 @@ public sealed partial class Plugin
         // Optimize + gating hint.
         new RowElement(new HudElement[]
         {
-            new ButtonElement(() => "Optimize ▶", RunOptimizeFromTargets,
+            new ButtonElement(() => _loc.T("mo.optimize"), RunOptimizeFromTargets,
                 Enabled: () => CanOptimize, Style: MenuButtonStyle.Filled),
             new ConditionalElement(() => !CanOptimize, new TextElement(OptimizeHint, Muted)),
         }, Gap: 6f),

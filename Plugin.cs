@@ -83,6 +83,7 @@ public sealed partial class Plugin : IStellarPlugin
 
     // ---- Services + config --------------------------------------------------
     private readonly IPluginServices _services;
+    private readonly ILocalization _loc;
     private readonly IConfigSection _targetsSection;
     private readonly IConfigSection _windowSection;
 
@@ -131,6 +132,7 @@ public sealed partial class Plugin : IStellarPlugin
     public Plugin(IPluginServices services)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
+        _loc = services.Localization;
 
         _targetsSection = _services.Config.GetSection("targets");
         _windowSection = _services.Config.GetSection("window");
@@ -156,7 +158,7 @@ public sealed partial class Plugin : IStellarPlugin
         _mainWindow = _services.Windows.Register(new WindowRegistration(
             new WindowSpec(
                 Id:          "moduleoptimizer.main",
-                Title:       "Module Optimizer",
+                Title:       _loc.T("mo.window.title"),
                 DefaultRect: new WindowRect(1218f, 514f, TargetsWidth, 0f),
                 Category:    WindowCategory.Tools,
                 Style:       WindowPanelStyle.GlassMenu)
@@ -170,7 +172,7 @@ public sealed partial class Plugin : IStellarPlugin
         _resultsWindow = _services.Windows.Register(new WindowRegistration(
             new WindowSpec(
                 Id:          "moduleoptimizer.results",
-                Title:       "Module Optimizer — Results",
+                Title:       _loc.T("mo.results.title"),
                 DefaultRect: new WindowRect(655f, 618f, ResultsWidth, 0f),
                 Category:    WindowCategory.Tools,
                 Style:       WindowPanelStyle.GlassMenu)
@@ -188,7 +190,7 @@ public sealed partial class Plugin : IStellarPlugin
         _toggleAction = _services.Hotkeys.DeclareAction(
             new HotkeyAction(
                 Id:              "moduleoptimizer.toggle",
-                Description:     "Toggle ModuleOptimizer",
+                Description:     _loc.T("mo.hotkey.toggle"),
                 SuggestedDefault: new KeyBinding(StellarKeyCode.F5)),
             callback: ToggleAndPersistTargets);
 

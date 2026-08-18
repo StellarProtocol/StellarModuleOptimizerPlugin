@@ -230,12 +230,12 @@ public sealed partial class Plugin
             // fold it into the same "Cancelled" reporting the rest of the flow
             // uses instead of letting it fall into the generic branch below.
             EnterFailed(Mathf.Max(1, _applyStepIndex), EquipResult.Cancelled,
-                $"Cancelled ({_applyStepIndex} / {_applyPlan.Count} steps completed).");
+                _loc.TFormat("mo.apply.cancelled", _applyStepIndex, _applyPlan.Count));
         }
         catch (Exception ex)
         {
             EnterFailed(Mathf.Max(1, _applyStepIndex), EquipResult.RpcError,
-                $"Apply flow error: {ex.Message}");
+                _loc.TFormat("mo.apply.flowError", ex.Message));
         }
     }
 
@@ -253,7 +253,7 @@ public sealed partial class Plugin
             if (ct.IsCancellationRequested)
             {
                 EnterFailed(i, EquipResult.Cancelled,
-                    $"Cancelled ({i} / {_applyPlan.Count} steps completed).");
+                    _loc.TFormat("mo.apply.cancelled", i, _applyPlan.Count));
                 return false;
             }
 
@@ -284,7 +284,7 @@ public sealed partial class Plugin
         if (result == EquipResult.Cancelled)
         {
             EnterFailed(_applyStepIndex, result,
-                $"Cancelled ({stepIndex} / {_applyPlan.Count} steps completed).");
+                _loc.TFormat("mo.apply.cancelled", stepIndex, _applyPlan.Count));
             return false;
         }
         if (result != EquipResult.Success && result != EquipResult.SlotEmpty)
@@ -301,7 +301,7 @@ public sealed partial class Plugin
             if (!go)
             {
                 EnterFailed(_applyStepIndex, EquipResult.Cancelled,
-                    $"Foreign inventory change after step {_applyStepIndex} — flow halted.");
+                    _loc.TFormat("mo.apply.foreignHalted", _applyStepIndex));
                 return false;
             }
         }
@@ -416,17 +416,17 @@ public sealed partial class Plugin
     }
 
     // Per-EquipResult human-friendly sub-line (UI design §2.4 Failed table).
-    private static string ExplainResult(EquipResult result, int slot) => result switch
+    private string ExplainResult(EquipResult result, int slot) => result switch
     {
-        EquipResult.SlotLocked => $"Slot {slot} is currently locked in-game.",
-        EquipResult.SlotConflict => "Equipping this module exceeds the category max.",
-        EquipResult.SlotEmpty => $"Slot {slot} was already empty (no uninstall needed).",
-        EquipResult.ModuleNotInInventory => "Target module is no longer in inventory.",
-        EquipResult.Timeout => "Game did not respond within 6 s.",
-        EquipResult.Cancelled => "Cancelled by user.",
-        EquipResult.RpcError => "Game-server error — see log.",
-        EquipResult.GameApiUnavailable => "Equip API not available — wait until you're in-world.",
-        EquipResult.PlayerNotInWorld => "Character not in-world — try again after a zone load.",
-        _ => "Unknown error — see log.",
+        EquipResult.SlotLocked => _loc.TFormat("mo.equip.slotLocked", slot),
+        EquipResult.SlotConflict => _loc.T("mo.equip.slotConflict"),
+        EquipResult.SlotEmpty => _loc.TFormat("mo.equip.slotEmpty", slot),
+        EquipResult.ModuleNotInInventory => _loc.T("mo.equip.notInInventory"),
+        EquipResult.Timeout => _loc.T("mo.equip.timeout"),
+        EquipResult.Cancelled => _loc.T("mo.equip.cancelled"),
+        EquipResult.RpcError => _loc.T("mo.equip.rpcError"),
+        EquipResult.GameApiUnavailable => _loc.T("mo.equip.apiUnavailable"),
+        EquipResult.PlayerNotInWorld => _loc.T("mo.equip.notInWorld"),
+        _ => _loc.T("mo.equip.unknown"),
     };
 }
