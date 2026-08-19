@@ -36,5 +36,6 @@
     <EmbeddedResource Include="Lang/ja.json" LogicalName="Stellar.ModuleOptimizer.Lang.ja.json" />
     <EmbeddedResource Include="Lang/th.json" LogicalName="Stellar.ModuleOptimizer.Lang.th.json" />
     <EmbeddedResource Include="Lang/id.json" LogicalName="Stellar.ModuleOptimizer.Lang.id.json" />
+    <EmbeddedResource Include="Lang/fil.json" LogicalName="Stellar.ModuleOptimizer.Lang.fil.json" />
   </ItemGroup>
 </Project>
