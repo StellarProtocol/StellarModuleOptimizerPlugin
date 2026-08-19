@@ -30,11 +30,11 @@ public sealed partial class Plugin
         {
             new ConditionalElement(() => _invAvailable && _targetIds.Count > 0, new ColumnElement(new HudElement[]
             {
-                new TextElement(() => $"Currently equipped:  Score {ComputeEquippedScore().ToString(CultureInfo.InvariantCulture)}"),
+                new TextElement(() => _loc.TFormat("mo.footer.equippedScore", ComputeEquippedScore().ToString(CultureInfo.InvariantCulture))),
                 new TextElement(BestDeltaLine, BestDeltaColor),
             })),
             new ConditionalElement(() => !(_invAvailable && _targetIds.Count > 0),
-                new TextElement(() => "Currently equipped:  —", Muted)),
+                new TextElement(() => _loc.T("mo.footer.equippedNone"), Muted)),
         }));
 
     private string BestDeltaLine()
@@ -42,7 +42,7 @@ public sealed partial class Plugin
         var equipped = ComputeEquippedScore();
         var best = _combos.Count > 0 ? _combos[0].Score : equipped;
         var delta = best - equipped;
-        return $"Best delta: {(delta >= 0 ? "+" : "")}{delta.ToString(CultureInfo.InvariantCulture)} (#1 above)";
+        return _loc.TFormat("mo.footer.bestDelta", (delta >= 0 ? "+" : "") + delta.ToString(CultureInfo.InvariantCulture));
     }
 
     private ColorRgba? BestDeltaColor()
@@ -61,13 +61,13 @@ public sealed partial class Plugin
         }
         return new ConditionalElement(() => _applyState == ApplyState.Confirm, new ColumnElement(new HudElement[]
         {
-            new TextElement(() => $"Apply combo #{_applyComboIndex + 1} — will change {_confirmSlotCount} slots:"),
+            new TextElement(() => _loc.TFormat("mo.footer.applyCombo", _applyComboIndex + 1, _confirmSlotCount)),
             new ListElement(() => _confirmStepLines.Count, lines),
             new RowElement(new HudElement[]
             {
-                new TextElement(() => $"(auto-cancels in {Countdown(ConfirmTimeoutS, _applyStateChangedAt):0.0} s)", Muted),
+                new TextElement(() => _loc.TFormat("mo.footer.autoCancel", Countdown(ConfirmTimeoutS, _applyStateChangedAt)), Muted),
                 new SpacerElement(),
-                new ButtonElement(() => "Cancel", ResetApplyState, Width: 70f),
+                new ButtonElement(() => _loc.T("mo.cancel"), ResetApplyState, Width: 70f),
             }, Gap: 6f),
         }));
     }
@@ -76,13 +76,13 @@ public sealed partial class Plugin
         () => _applyState == ApplyState.Running && !_foreignPrompt,
         new ColumnElement(new HudElement[]
         {
-            new TextElement(() => $"Applying… ({RunningStep()} / {_applyPlan.Count})"),
+            new TextElement(() => _loc.TFormat("mo.footer.applying", RunningStep(), _applyPlan.Count)),
             new TextElement(RunningStepLine),
             new BarElement(RunningFraction, ProgressFill),
             new RowElement(new HudElement[]
             {
                 new SpacerElement(),
-                new ButtonElement(() => "Cancel", CancelApply, Width: 70f),
+                new ButtonElement(() => _loc.T("mo.cancel"), CancelApply, Width: 70f),
             }),
         }));
 
@@ -93,8 +93,8 @@ public sealed partial class Plugin
     {
         if (_applyStepIndex < 1 || _applyStepIndex > _applyPlan.Count) return "";
         var step = _applyPlan[_applyStepIndex - 1];
-        var sub = step.Kind == StepKind.Install ? step.ModuleName : "(uninstall current)";
-        return $"Slot {step.Slot}: {sub}";
+        var sub = step.Kind == StepKind.Install ? step.ModuleName : _loc.T("mo.footer.uninstall");
+        return _loc.TFormat("mo.footer.slotStep", step.Slot, sub);
     }
 
     private float RunningFraction()
@@ -107,14 +107,14 @@ public sealed partial class Plugin
         () => _applyState == ApplyState.Running && _foreignPrompt,
         new ColumnElement(new HudElement[]
         {
-            new TextElement(() => "⚠ Inventory changed mid-apply.", () => WarnColor),
-            new TextElement(() => $"(Foreign change detected after step {_applyStepIndex - 1}.)", Muted),
+            new TextElement(() => _loc.T("mo.footer.foreignChanged"), () => WarnColor),
+            new TextElement(() => _loc.TFormat("mo.footer.foreignDetected", _applyStepIndex - 1), Muted),
             new RowElement(new HudElement[]
             {
-                new ButtonElement(() => "Continue", () => ResolveForeignPrompt(true), Width: 80f),
-                new ButtonElement(() => "Cancel", () => ResolveForeignPrompt(false), Width: 70f),
+                new ButtonElement(() => _loc.T("mo.continue"), () => ResolveForeignPrompt(true), Width: 80f),
+                new ButtonElement(() => _loc.T("mo.cancel"), () => ResolveForeignPrompt(false), Width: 70f),
                 new SpacerElement(),
-                new TextElement(() => $"(auto-cancels in {Countdown(ForeignChangeTimeoutS, _foreignPromptAt):0.0} s)", Muted),
+                new TextElement(() => _loc.TFormat("mo.footer.autoCancel", Countdown(ForeignChangeTimeoutS, _foreignPromptAt)), Muted),
             }, Gap: 6f),
         }));
 
@@ -126,7 +126,7 @@ public sealed partial class Plugin
             // verify+retry pass repoints _applyPlan at the smaller retry
             // batch, so the original main-plan slot count is snapshotted at
             // StartApply instead of recomputed here (see Plugin.Apply.cs).
-            new TextElement(() => $"✓ Applied {_appliedSlotCount} changes.", () => SuccessColor),
+            new TextElement(() => _loc.TFormat("mo.footer.applied", _appliedSlotCount), () => SuccessColor),
             new TextElement(DoneScoreLine),
         }));
 
@@ -134,20 +134,19 @@ public sealed partial class Plugin
     {
         var score = ComputeEquippedScore();
         var delta = score - _preApplyEquippedScore;
-        return $"Currently equipped:  Score {score.ToString(CultureInfo.InvariantCulture)}"
-            + $"  ({(delta >= 0 ? "+" : "")}{delta.ToString(CultureInfo.InvariantCulture)})";
+        return _loc.TFormat("mo.footer.doneScore", score.ToString(CultureInfo.InvariantCulture), (delta >= 0 ? "+" : "") + delta.ToString(CultureInfo.InvariantCulture));
     }
 
     private HudElement BuildFailedFooter() => new ConditionalElement(
         () => _applyState == ApplyState.Failed,
         new ColumnElement(new HudElement[]
         {
-            new TextElement(() => $"⚠ Step {_failedStepNumber} failed:  {_failedResult}", () => ErrorColor),
+            new TextElement(() => _loc.TFormat("mo.footer.stepFailed", _failedStepNumber, _failedResult), () => ErrorColor),
             new TextElement(() => _failedSubLine, Muted),
             new RowElement(new HudElement[]
             {
-                new ButtonElement(() => "Dismiss", ResetApplyState, Width: 90f),
-                new ButtonElement(() => "Re-optimize", ReoptimizeFromFailed, Width: 110f),
+                new ButtonElement(() => _loc.T("mo.dismiss"), ResetApplyState, Width: 90f),
+                new ButtonElement(() => _loc.T("mo.reoptimize"), ReoptimizeFromFailed, Width: 110f),
             }, Gap: 6f),
         }));
 

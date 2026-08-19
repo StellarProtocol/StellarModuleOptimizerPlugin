@@ -99,11 +99,11 @@ public sealed partial class Plugin
     private HudElement BuildResultsRoot() => new ColumnElement(new HudElement[]
     {
         new ConditionalElement(() => _haveOptimized && _combos.Count > 0,
-            new TextElement(() => $"Top {_combos.Count} combinations  •  {_lastCandidateCount} candidates", Muted)),
+            new TextElement(() => _loc.TFormat("mo.results.top", _combos.Count, _lastCandidateCount), Muted)),
         new SeparatorElement(),
 
         new ConditionalElement(() => !_haveOptimized,
-            new TextElement(() => "Click Optimize ▶ in the Targets window.", Muted)),
+            new TextElement(() => _loc.T("mo.results.clickOptimize"), Muted)),
         new ConditionalElement(() => _haveOptimized && _combos.Count == 0, BuildEmptyState()),
         new ConditionalElement(() => _haveOptimized && _combos.Count > 0,
             new ScrollElement(new ListElement(() => _combos.Count, BuildComboSlots()), ComboListHeight)),
@@ -187,15 +187,15 @@ public sealed partial class Plugin
     {
         new ConditionalElement(EmptyIsFloorProblem, new ColumnElement(new HudElement[]
         {
-            new TextElement(() => "No combination meets the minimums —", Muted),
+            new TextElement(() => _loc.T("mo.results.noCombo"), Muted),
             new TextElement(() => "lower them or widen the category mask.", Muted),
         })),
         new ConditionalElement(() => !EmptyIsFloorProblem(), new ColumnElement(new HudElement[]
         {
-            new TextElement(() => $"Need at least {SlotCount} modules in selected categories.", Muted),
+            new TextElement(() => _loc.TFormat("mo.results.needAtLeast", SlotCount), Muted),
             new TextElement(() => $"({_lastCandidateCount} matching modules in inventory)", Muted),
         })),
-        new ButtonElement(() => "Adjust targets", () => ShowAndPersist(_mainWindow, "targets_visible")),
+        new ButtonElement(() => _loc.T("mo.results.adjustTargets"), () => ShowAndPersist(_mainWindow, "targets_visible")),
     });
 
     private bool EmptyIsFloorProblem() => _hadMinSumFloors && _lastCandidateCount >= SlotCount;
@@ -247,8 +247,8 @@ public sealed partial class Plugin
             new SeparatorElement(),
             new RowElement(new HudElement[]
             {
-                new CellElement(new TextElement(() => "Attribute", Muted), Width: PreviewAttrColW),
-                new CellElement(new TextElement(() => "Current → Proj", Muted), Width: PreviewValueColW),
+                new CellElement(new TextElement(() => _loc.T("mo.attribute"), Muted), Width: PreviewAttrColW),
+                new CellElement(new TextElement(() => _loc.T("mo.results.currentProj"), Muted), Width: PreviewValueColW),
                 new CellElement(new TextElement(() => "Δ", Muted), Width: PreviewDeltaColW),
             }, Gap: 6f),
             new ListElement(() => _previewAttrs.Count, slots),
