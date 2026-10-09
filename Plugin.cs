@@ -194,9 +194,16 @@ public sealed partial class Plugin : IStellarPlugin
                 SuggestedDefault: new KeyBinding(StellarKeyCode.F5)),
             callback: ToggleAndPersistTargets);
 
+        // Title stays the fixed literal "Module Optimizer" — the stable pin-identity key
+        // (ILauncher.cs:49-50) — so a pinned tile survives a language change; TitleProvider carries the
+        // live-localized display text.
         _launcherEntry = _services.Launcher.Register(new LauncherEntry(
             "Module Optimizer", LoadIconPng(), IconKey: null, OnOpen: ToggleAndPersistTargets)
-        { ShouldShow = () => _services.ClientState.Phase == GamePhase.World });
+        {
+            // Re-localize the tile DISPLAY on a language change; Title above never changes (pin identity).
+            TitleProvider = () => _loc.T("mo.launcher.title"),
+            ShouldShow = () => _services.ClientState.Phase == GamePhase.World
+        });
     }
 
     private static byte[]? LoadIconPng()

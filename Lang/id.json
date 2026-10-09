@@ -35,6 +35,7 @@
   "mo.hotkey.toggle": "Alihkan ModuleOptimizer",
   "mo.inventory": "Inventaris: {0} modul",
   "mo.inventoryNone": "Inventaris: —",
+  "mo.launcher.title": "Optimizer Modul",
   "mo.loading": "Memuat atribut…",
   "mo.noMatch": "Tidak ada atribut cocok '{0}'",
   "mo.noModules": "Tidak ada modul di inventaris.",

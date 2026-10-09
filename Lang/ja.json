@@ -35,6 +35,7 @@
   "mo.hotkey.toggle": "ModuleOptimizerの表示切替",
   "mo.inventory": "インベントリ: {0} モジュール",
   "mo.inventoryNone": "インベントリ: —",
+  "mo.launcher.title": "モジュールオプティマイザー",
   "mo.loading": "属性を読み込み中…",
   "mo.noMatch": "'{0}' に一致する属性がありません",
   "mo.noModules": "インベントリにモジュールがありません。",
