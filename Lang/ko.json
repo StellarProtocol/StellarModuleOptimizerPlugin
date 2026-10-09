@@ -47,7 +47,7 @@
   "mo.results.currentProj": "현재 → 예상",
   "mo.results.needAtLeast": "선택한 카테고리에 모듈이 최소 {0}개 필요합니다.",
   "mo.results.noCombo": "최소 조건을 만족하는 조합이 없습니다 —",
-  "mo.results.title": "Module Optimizer — 결과",
+  "mo.results.title": "모듈 최적화 — 결과",
   "mo.results.top": "상위 {0}개 조합  •  후보 {1}개",
   "mo.search": "검색:",
   "mo.showTop": "상위 표시",
