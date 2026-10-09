@@ -32,7 +32,7 @@
   "mo.footer.slotStep": "슬롯 {0}: {1}",
   "mo.footer.stepFailed": "⚠ {0}단계 실패:  {1}",
   "mo.footer.uninstall": "(현재 장착 해제)",
-  "mo.hotkey.toggle": "ModuleOptimizer 창 전환",
+  "mo.hotkey.toggle": "모듈 최적화 창 전환",
   "mo.inventory": "가방: 모듈 {0}개",
   "mo.inventoryNone": "가방: —",
   "mo.launcher.title": "모듈 최적화",
