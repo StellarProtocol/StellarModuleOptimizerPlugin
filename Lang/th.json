@@ -35,6 +35,7 @@
   "mo.hotkey.toggle": "สลับ ModuleOptimizer",
   "mo.inventory": "กระเป๋า: {0} โมดูล",
   "mo.inventoryNone": "กระเป๋า: —",
+  "mo.launcher.title": "ตัวปรับโมดูล",
   "mo.loading": "กำลังโหลดแอตทริบิวต์…",
   "mo.noMatch": "ไม่มีแอตทริบิวต์ตรงกับ '{0}'",
   "mo.noModules": "ไม่มีโมดูลในกระเป๋า",

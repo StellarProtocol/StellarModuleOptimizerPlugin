@@ -35,6 +35,7 @@
   "mo.hotkey.toggle": "Toggle ModuleOptimizer",
   "mo.inventory": "Inventory: {0} modules",
   "mo.inventoryNone": "Inventory: —",
+  "mo.launcher.title": "Module Optimizer",
   "mo.loading": "Loading attributes…",
   "mo.noMatch": "No attributes match '{0}'",
   "mo.noModules": "No modules in inventory.",

@@ -14,8 +14,10 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <!-- i18n P2: consumes IPluginServices.Localization (framework 2.1.0). -->
-    <PackageReference Include="Stellar.Abstractions"       Version="2.1.0" />
+    <!-- i18n P2: consumes IPluginServices.Localization (framework 2.1.0). Bumped to 2.3.0 for the
+         i18n-ko launcher-tile fix: LauncherEntry.TitleProvider (live-localized tile title) was added
+         in Abstractions 2.3.0 — additive/binary-compatible per framework/CHANGELOG.md [2.3.0]. -->
+    <PackageReference Include="Stellar.Abstractions"       Version="2.3.0" />
     <PackageReference Include="Stellar.PluginContracts"    Version="2.0.0" />
     <PackageReference Include="Stellar.Plugin.InteropRefs" Version="2.0.0" />
   </ItemGroup>

@@ -35,6 +35,7 @@
   "mo.hotkey.toggle": "I-toggle ang ModuleOptimizer",
   "mo.inventory": "Imbentaryo: {0} module",
   "mo.inventoryNone": "Imbentaryo: —",
+  "mo.launcher.title": "Module Optimizer",
   "mo.loading": "Naglo-load ng mga katangian…",
   "mo.noMatch": "Walang katangiang tumutugma sa '{0}'",
   "mo.noModules": "Walang module sa imbentaryo.",

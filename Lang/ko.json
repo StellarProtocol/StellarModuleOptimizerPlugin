@@ -35,6 +35,7 @@
   "mo.hotkey.toggle": "ModuleOptimizer 창 전환",
   "mo.inventory": "가방: 모듈 {0}개",
   "mo.inventoryNone": "가방: —",
+  "mo.launcher.title": "모듈 최적화",
   "mo.loading": "능력치 불러오는 중…",
   "mo.noMatch": "일치하는 능력치 없음: '{0}'",
   "mo.noModules": "가방에 모듈이 없습니다.",

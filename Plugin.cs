@@ -195,8 +195,12 @@ public sealed partial class Plugin : IStellarPlugin
             callback: ToggleAndPersistTargets);
 
         _launcherEntry = _services.Launcher.Register(new LauncherEntry(
-            "Module Optimizer", LoadIconPng(), IconKey: null, OnOpen: ToggleAndPersistTargets)
-        { ShouldShow = () => _services.ClientState.Phase == GamePhase.World });
+            _loc.T("mo.launcher.title"), LoadIconPng(), IconKey: null, OnOpen: ToggleAndPersistTargets)
+        {
+            // Re-localize the tile title live on a language change (Title alone is a captured string).
+            TitleProvider = () => _loc.T("mo.launcher.title"),
+            ShouldShow = () => _services.ClientState.Phase == GamePhase.World
+        });
     }
 
     private static byte[]? LoadIconPng()
